@@ -1,0 +1,26 @@
+{
+  "rules": {
+    "chat": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    "news": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    "presence": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    "users": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    "diaries": {
+      "$username": {
+        ".read": "auth != null && auth.token.email.contains($username)",
+        ".write": "auth != null && auth.token.email.contains($username)"
+      }
+    }
+  }
+}

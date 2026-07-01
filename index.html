@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>TERMINAL | THE VOID</title>
+
+    <meta property="og:title" content="TERMINAL | THE VOID">
+    <meta property="og:description" content="[СИСТЕМА ДОСТУПА В БЕЗДНУ] Введите идентификатор и секретный ключ.">
+    <meta property="og:image" content="https://CanvasDreamer.github.io/void-terminal/img/logo.jpg">
+    <meta property="og:url" content="https://CanvasDreamer.github.io/void-terminal/">
+    <meta property="og:type" content="website">
+    <meta name="twitter:card" content="summary_large_image">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#050505">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="VOID Terminal">
+    
+    <link rel="icon" type="image/jpeg" href="img/logo.jpg?v=2">
+    <link rel="shortcut icon" href="img/logo.jpg?v=2" type="image/x-icon">
+    <link rel="apple-touch-icon" href="img/logo.jpg?v=2">
+    <link rel="manifest" href="manifest.json">
+    
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    
+    <style>
+        :root { 
+            --blood-red: #8b0000; 
+            --void-black: #050505; 
+            --text-gray: #666; 
+            --terminal-green: #00ff41; 
+            --panel-width: 220px;
+        }
+
+        input:-webkit-autofill,
+        input:-webkit-autofill:hover, 
+        input:-webkit-autofill:focus, 
+        input:-webkit-autofill:active {
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: var(--terminal-green) !important;
+            transition: background-color 5000s ease-in-out 0s;
+            box-shadow: inset 0 0 20px 20px #000 !important;
+        }
+
+        body, html { 
+            background-color: var(--void-black); 
+            color: var(--text-gray); 
+            font-family: 'Courier New', monospace; 
+            margin: 0; padding: 0;
+            height: 100vh; width: 100vw; 
+            overflow: hidden; 
+            display: flex; justify-content: center; align-items: center; 
+        }
+
+        .crt-overlay { 
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%), 
+                        linear-gradient(90deg, rgba(255, 0, 0, 0.05), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.05)); 
+            background-size: 100% 4px, 3px 100%; 
+            pointer-events: none; z-index: 1000; opacity: 0.6;
+        }
+
+        .scanline {
+            width: 100%; height: 100px; z-index: 1001; position: absolute;
+            background: linear-gradient(0deg, rgba(0, 0, 0, 0) 0%, rgba(255, 255, 255, 0.03) 50%, rgba(0, 0, 0, 0) 100%);
+            opacity: 0.1; pointer-events: none;
+            animation: scanline 8s linear infinite;
+        }
+
+        .terminal { 
+            width: 98%; height: 95vh; 
+            background: rgba(8, 8, 8, 0.98); border: 1px solid #222; 
+            display: flex; flex-direction: column; 
+            box-shadow: 0 0 50px rgba(0,0,0,1); position: relative; 
+        }
+
+        .nav { display: flex; border-bottom: 1px solid #222; background: #111; }
+        .nav-item { 
+            padding: 15px 30px; cursor: pointer; border: 1px solid #222; 
+            text-transform: uppercase; font-size: 0.9rem; color: var(--text-gray);
+            transition: all 0.1s; margin-right: -1px;
+        }
+        .nav-item:hover, .nav-item.active { 
+            color: #fff !important; background: var(--blood-red) !important; 
+            border: 1px solid #fff !important; box-shadow: 0 0 15px var(--blood-red); z-index: 10;
+        }
+
+        .content { flex-grow: 1; padding: 25px; overflow-y: auto; display: none; }
+        .section { display: none; height: 100%; }
+        .section.active { display: flex; flex-direction: column; animation: flicker 0.1s infinite alternate; }
+
+        .chat-container {
+            display: flex;
+            gap: 0; 
+            height: calc(100% - 60px);
+            margin-top: 10px;
+            position: relative;
+            overflow: hidden; 
+        }
+
+        .toggle-panel-btn {
+            position: absolute;
+            left: 10px;
+            top: 10px;
+            z-index: 20;
+            background: #080808;
+            color: var(--text-gray);
+            border: 1px solid #333;
+            padding: 5px 12px;
+            font-size: 1.2rem;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+        .toggle-panel-btn:hover {
+            border-color: var(--blood-red);
+            color: #fff;
+            box-shadow: 0 0 10px rgba(139,0,0,0.2);
+        }
+
+        .user-sidebar {
+            position: absolute; 
+            left: -250px; 
+            top: 0;
+            width: var(--panel-width);
+            height: 100%;
+            background: #050505;
+            border-right: 2px solid #222;
+            overflow-y: auto;
+            padding: 50px 15px 15px 15px; 
+            box-sizing: border-box;
+            z-index: 10;
+            transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 5px 0 15px rgba(0,0,0,0.8);
+        }
+        
+        .user-sidebar.open {
+            left: 0; 
+        }
+
+        .sidebar-overlay {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0);
+            pointer-events: none;
+            z-index: 5;
+            transition: background 0.3s;
+        }
+        .sidebar-overlay.active {
+            background: rgba(0,0,0,0.6);
+            pointer-events: all; 
+        }
+
+        .sidebar-user {
+            padding: 8px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            border-bottom: 1px solid #111;
+            transition: 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .sidebar-user:hover {
+            background: #1a0000;
+            color: #fff;
+        }
+        .status-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #333;
+            flex-shrink: 0;
+        }
+        .status-dot.online {
+            background: var(--terminal-green);
+            box-shadow: 0 0 5px var(--terminal-green);
+        }
+
+        .chat-main {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            padding-left: 10px; 
+            width: 100%;
+        }
+
+        .status-footer {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 10px 25px; background: #080808; border-top: 1px solid #222; 
+            font-size: 1rem; color: #444;
+        }
+
+        #sys-time { 
+            color: #eee; font-weight: bold; letter-spacing: 2px;
+            text-shadow: 0 0 8px rgba(255, 255, 255, 0.3); font-size: 1.1rem;
+        }
+
+        input, textarea { 
+            background: #000; border: 1px solid #333; color: var(--terminal-green); 
+            padding: 12px; margin: 10px 0; width: 100%; box-sizing: border-box; 
+            font-family: inherit; font-size: 1rem; outline: none;
+        }
+        input:focus { border-color: var(--blood-red); box-shadow: 0 0 5px var(--blood-red); }
+
+        button { 
+            background: #0a0a0a; color: var(--blood-red); border: 1px solid var(--blood-red); 
+            padding: 10px 25px; cursor: pointer; text-transform: uppercase; font-weight: bold;
+        }
+        button:hover { background: var(--blood-red); color: #000; box-shadow: 0 0 15px var(--blood-red); }
+
+        .display-area {
+            flex-grow: 1;
+            border: 1px solid #222;
+            padding: 15px;
+            overflow-y: auto;
+            overflow-x: hidden;
+            background: #000;
+            word-wrap: break-word;
+            word-break: break-all;
+        }
+
+        .chat-window div {
+            max-width: 100%;
+            white-space: pre-wrap;
+        }
+        .log-entry { background: rgba(20, 0, 0, 0.1); border-left: 3px solid var(--blood-red); padding: 15px; margin-bottom: 15px; border-bottom: 1px solid #1a0000; }
+        .del-btn {
+            color: var(--blood-red);
+            cursor: pointer;
+            font-size: 0.8rem;
+            border: 1px solid #333;
+            padding: 2px 6px;
+            margin-left: 10px;
+            transition: 0.3s;
+            flex-shrink: 0;
+        }
+        .del-btn:hover {
+            background: var(--blood-red);
+            color: #fff;
+            border-color: #fff;
+        }
+
+        #custom-modal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.95); z-index:10000; justify-content:center; align-items:center; }
+        .modal-box { background:#080808; border:1px solid var(--blood-red); padding:30px; width:400px; text-align:center; box-shadow: 0 0 30px rgba(139, 0, 0, 0.4); }
+
+        @keyframes scanline { 0% { top: -10%; } 100% { top: 110%; } }
+        @keyframes flicker { 0% { opacity: 0.99; } 100% { opacity: 1; } }
+    </style>
+</head>
+<body>
+
+<div class="crt-overlay"></div>
+<div class="scanline"></div>
+
+<div id="custom-modal">
+    <div class="modal-box">
+        <h2 id="modal-title" style="color:var(--blood-red); margin-top:0; letter-spacing:4px;">SYSTEM ALERT</h2>
+        <p id="modal-text" style="color:var(--terminal-green); margin-bottom:25px;"></p>
+        <div style="display:flex; gap:15px; justify-content:center;">
+            <button id="modal-ok-btn">ПОДТВЕРДИТЬ</button>
+            <button id="modal-cancel-btn" style="border-color:#444; color:#444;">ОТМЕНА</button>
+        </div>
+    </div>
+</div>
+
+<div class="terminal">
+    <!-- ИСПРАВЛЕНА СТРУКТУРА ЭКРАНА ВХОДА -->
+    <div id="auth-screen" style="display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100%; padding: 20px; text-align: center; box-sizing: border-box;">
+        <img src="./img/logo.jpg" alt="VOID LOGO" 
+     style="width: 150px; height: 150px; border-radius: 50%; 
+            border: 2px solid var(--blood-red); margin-bottom: 30px; 
+            box-shadow: 0 0 25px rgba(139, 0, 0, 0.7);
+            filter: grayscale(0.5) contrast(1.2);">
+        <h1 style="color: var(--blood-red); letter-spacing: 15px; font-size: 3.5rem; margin-bottom: 10px;">SECURE ACCESS</h1>
+        <p style="margin-bottom: 40px; font-size: 0.8rem; letter-spacing: 2px; color: #444;">[ ПОИСК СИГНАЛА... ]</p>
+        
+        <!-- ИСПРАВЛЕННЫЕ ПОЛЯ ВВОДА (теперь они адаптивные) -->
+        <div style="width: 100%; max-width: 450px; display: flex; flex-direction: column; gap: 15px;">
+            <input type="email" id="email-input" placeholder="USER_IDENTIFICATION@VOID.COM">
+            <input type="password" id="pass-input" placeholder="SECRET_KEY" autocomplete="new-password">
+            <button onclick="handleAuth()">ВХОД В СИСТЕМУ</button>
+        </div>
+    </div>
+
+    <div id="main-ui" style="display: none; height: 100%; flex-direction: column;">
+        <div class="nav">
+            <div class="nav-item active" onclick="switchTab('diary', this)">Архив Тайн</div>
+            <div class="nav-item" onclick="switchTab('chat', this)">Общая Бездна</div>
+            <div class="nav-item" onclick="switchTab('news', this)">Сводка Происшествий</div>
+            <div class="nav-item" onclick="logout()" style="margin-left: auto; border-left: 1px solid #222;">ВЫХОД</div>
+        </div>
+
+        <div class="content" id="content-box">
+            <div id="diary" class="section active">
+                <h2>ЛИЧНЫЙ ЛОГ: <span id="user-tag" style="color: var(--blood-red);"></span></h2>
+                <textarea id="diary-input" rows="3" placeholder="Записать секрет..."></textarea>
+                <button onclick="saveDiary()">ЗАПЕЧАТАТЬ</button>
+                <div id="diary-list" style="margin-top: 20px;"></div>
+            </div>
+
+            <div id="chat" class="section">
+                <h2>КАНАЛ СВЯЗИ</h2>
+                <div class="chat-container">
+                    
+                    <button class="toggle-panel-btn" onclick="togglePanel()">[≡]</button>
+
+                    <div class="user-sidebar" id="user-sidebar">
+                        <h4 style="color: #fff; margin-top: 30px;">ACTIVE_ENTITIES</h4>
+                        <div id="users-list-sidebar"></div>
+                    </div>
+                    
+                    <div class="sidebar-overlay" id="sidebar-overlay" onclick="togglePanel()"></div>
+
+                    <div class="chat-main">
+                        <div id="chat-window" class="display-area"></div>
+                        <div style="display: flex; gap: 10px; margin-top: 10px;">
+                            <input type="text" id="chat-msg" placeholder="Сообщение...">
+                            <button onclick="sendChat()">SEND</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="news" class="section">
+                <h2>СВОДКА ПРОИСШЕСТВИЙ</h2>
+                <div style="background: rgba(40, 0, 0, 0.2); padding: 15px; border: 1px dashed var(--blood-red); margin-bottom: 20px;">
+                    <input type="text" id="news-title" placeholder="ЗАГОЛОВОК...">
+                    <textarea id="news-text" rows="3" placeholder="ОПИСАНИЕ..."></textarea>
+                    <button id="post-btn" onclick="postNews()">ОПУБЛИКОВАТЬ</button>
+                </div>
+                <div id="news-list"></div>
+            </div>
+        </div>
+
+        <div class="status-footer">
+            <div id="sys-time">DATE: --/--/---- | TIME: --:--:--</div>
+            <div id="online-count" style="color: var(--terminal-green); font-weight: bold;">ACTIVE_AGENTS: 0</div>
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <span style="font-size: 0.7rem; color: #444;">DATA_LOAD:</span>
+                <div style="width: 100px; height: 8px; border: 1px solid #333; position: relative; background: #000;">
+                    <div id="memory-bar" style="width: 0%; height: 100%; background: var(--terminal-green); transition: 0.5s;"></div>
+                </div>
+                <span id="memory-percent" style="font-size: 0.8rem; color: var(--terminal-green);">0%</span>
+            </div>
+            <div id="sys-coords" style="font-size: 0.8rem;">POS: 43.2389, 76.8897</div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const firebaseConfig = {
+        apiKey: "AIzaSyAbIb4Q6dwBX5ZJGV6231Fd4DsNJH4Pi94",
+        authDomain: "mycreepypastasite.firebaseapp.com",
+        databaseURL: "https://mycreepypastasite-default-rtdb.firebaseio.com/",
+        projectId: "mycreepypastasite",
+        storageBucket: "mycreepypastasite.firebasestorage.app",
+        messagingSenderId: "760154862509",
+        appId: "1:760154862509:web:e28ce756010f96240e2724"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.database();
+    let currentUserName = "";
+
+    window.onload = function() {
+        const savedEmail = localStorage.getItem('void_login');
+        if (savedEmail) {
+            document.getElementById('email-input').value = savedEmail;
+        }
+    };
+
+    setInterval(() => {
+        const now = new Date();
+        const d = String(now.getDate()).padStart(2, '0') + '/' + String(now.getMonth() + 1).padStart(2, '0') + '/' + now.getFullYear();
+        const t = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0') + ':' + String(now.getSeconds()).padStart(2, '0');
+        document.getElementById('sys-time').innerText = `DATE: ${d} | TIME: ${t}`;
+    }, 1000);
+
+    function goFullScreen() {
+        const docEl = document.documentElement;
+        if (docEl.requestFullscreen) docEl.requestFullscreen();
+        else if (docEl.webkitRequestFullscreen) docEl.webkitRequestFullscreen();
+    }
+
+    function showVoidModal(text, type, callback) {
+        const modal = document.getElementById('custom-modal');
+        document.getElementById('modal-text').innerText = text;
+        modal.style.display = 'flex';
+        document.getElementById('modal-ok-btn').onclick = () => { modal.style.display = 'none'; if(callback) callback(true); };
+        document.getElementById('modal-cancel-btn').onclick = () => { modal.style.display = 'none'; if(callback) callback(false); };
+    }
+
+    async function handleAuth() {
+        try { goFullScreen(); } catch (e) {}
+        const email = document.getElementById('email-input').value;
+        const pass = document.getElementById('pass-input').value;
+        
+        if(!email || !pass) {
+            showVoidModal("ВВЕДИТЕ ДАННЫЕ ДОСТУПА", 'alert');
+            return;
+        }
+
+        try {
+            const res = await auth.signInWithEmailAndPassword(email, pass);
+            localStorage.setItem('void_login', email);
+            enterVoid(res.user.email);
+        } catch (e) {
+            if (e.code === 'auth/user-not-found') {
+                const res = await auth.createUserWithEmailAndPassword(email, pass);
+                localStorage.setItem('void_login', email);
+                enterVoid(res.user.email);
+            } else { 
+                showVoidModal("ОШИБКА ДОСТУПА", 'alert'); 
+            }
+        }
+    }
+
+    function togglePanel() {
+        const sidebar = document.getElementById('user-sidebar');
+        const overlay = document.getElementById('sidebar-overlay');
+        sidebar.classList.toggle('open');
+        overlay.classList.toggle('active');
+    }
+
+    function enterVoid(email) {
+        currentUserName = email.split('@')[0];
+        document.getElementById('auth-screen').style.display = 'none';
+        document.getElementById('main-ui').style.display = 'flex';
+        document.getElementById('content-box').style.display = 'block';
+        document.getElementById('user-tag').innerText = currentUserName.toUpperCase();
+        
+        db.ref('users/' + currentUserName).set({ lastSeen: Date.now() });
+
+        initChatListener(); 
+        initNewsListener(); 
+        initDiaryListener(); 
+        initPresence();
+        initSidebarListener(); 
+        initMemoryMonitor();
+
+        document.getElementById('chat-msg').addEventListener('keypress', (e) => { if(e.key==='Enter') sendChat(); });
+    }
+
+    function initSidebarListener() {
+        db.ref('users').on('value', (snapshot) => {
+            const sidebar = document.getElementById('users-list-sidebar');
+            sidebar.innerHTML = "";
+            snapshot.forEach((child) => {
+                const userName = child.key;
+                const userEl = document.createElement('div');
+                userEl.className = 'sidebar-user';
+                userEl.innerHTML = `<span class="status-dot" id="dot-${userName}"></span> ${userName.toUpperCase()}`;
+                userEl.onclick = () => {
+                    document.getElementById('chat-msg').value = `${userName.toUpperCase()}, `;
+                    document.getElementById('chat-msg').focus();
+                };
+                sidebar.appendChild(userEl);
+
+                db.ref('presence/' + userName).on('value', (pSnap) => {
+                    const dot = document.getElementById('dot-' + userName);
+                    if (dot) {
+                        if (pSnap.val()) dot.classList.add('online');
+                        else dot.classList.remove('online');
+                    }
+                });
+            });
+        });
+    }
+
+    function switchTab(id, el) {
+        document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+        document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+        document.getElementById(id).classList.add('active'); el.classList.add('active');
+        
+        if(id === 'chat' && document.getElementById('user-sidebar').classList.contains('open')) {
+            togglePanel();
+        }
+    }
+
+    function sendChat() {
+        const inp = document.getElementById('chat-msg'); 
+        const val = inp.value.trim();
+        if (!val) return;
+
+        if (val === '/clear_void') {
+            showVoidModal("ВНИМАНИЕ: УДАЛИТЬ ВСЮ ИСТОРИЮ ЧАТА И ОЧИСТИТЬ ПАМЯТЬ?", 'confirm', (res) => {
+                if (res) {
+                    db.ref('chat').remove();
+                    inp.value = "";
+                }
+            });
+            return;
+        }
+
+        const ref = db.ref('chat').push();
+        ref.set({ id: ref.key, user: currentUserName, text: val, time: Date.now() });
+        inp.value = "";
+    }
+
+    function initChatListener() {
+        db.ref('chat').limitToLast(40).on('value', (s) => {
+            const win = document.getElementById('chat-window'); win.innerHTML = "";
+            s.forEach(c => {
+                const m = c.val();
+                win.innerHTML += `<div style="margin-bottom:8px; display:flex; justify-content:space-between;">
+                    <span><b style="color:var(--blood-red)">${m.user.toUpperCase()}:</b> ${m.text}</span>
+                    ${m.user === currentUserName ? `<span class="del-btn" onclick="deleteEntry('chat', '${m.id}')">[×]</span>` : ''}
+                </div>`;
+            });
+            win.scrollTop = win.scrollHeight;
+        });
+    }
+
+    async function postNews() {
+        const title = document.getElementById('news-title').value;
+        const text = document.getElementById('news-text').value;
+        if (!title || !text) return;
+        const ref = db.ref('news').push();
+        await ref.set({ id: ref.key, author: currentUserName, title: title.toUpperCase(), text: text, time: Date.now() });
+        document.getElementById('news-title').value = ""; document.getElementById('news-text').value = "";
+    }
+
+    function initNewsListener() {
+        db.ref('news').on('value', (s) => {
+            const list = document.getElementById('news-list'); list.innerHTML = "";
+            let items = []; s.forEach(c => items.unshift(c.val()));
+            list.innerHTML = items.map(n => `
+                <div class="log-entry">
+                    <div style="display:flex; justify-content:space-between;"><b>[${n.title}]</b>
+                    ${n.author === currentUserName ? `<span class="del-btn" onclick="deleteEntry('news', '${n.id}')">[УДАЛИТЬ]</span>` : ''}</div>
+                    <small>АГЕНТ: ${n.author}</small><p style="color: var(--terminal-green)">${n.text}</p>
+                </div>`).join('');
+        });
+    }
+
+    function deleteEntry(path, id) {
+        showVoidModal("УНИЧТОЖИТЬ ЗАПИСЬ?", 'confirm', (res) => { if (res) db.ref(path + '/' + id).remove(); });
+    }
+
+    function saveDiary() {
+        const txt = document.getElementById('diary-input').value; 
+        if (!txt) return;
+        
+        const ref = db.ref('diaries/' + currentUserName).push();
+        ref.set({
+            id: ref.key,
+            date: new Date().toLocaleString(),
+            text: txt,
+            timestamp: Date.now()
+        });
+        
+        document.getElementById('diary-input').value = "";
+    }
+
+    function initDiaryListener() {
+        db.ref('diaries/' + currentUserName).on('value', (s) => {
+            const list = document.getElementById('diary-list');
+            list.innerHTML = "";
+            let items = [];
+            s.forEach(child => {
+                items.unshift(child.val());
+            });
+            
+            list.innerHTML = items.map(i => `
+                <div class="log-entry">
+                    <div style="display:flex; justify-content:space-between;">
+                        <small>${i.date}</small>
+                        <span class="del-btn" onclick="deleteDiaryEntry('${i.id}')">[×]</span>
+                    </div>
+                    <div style="margin-top:10px;">${i.text}</div>
+                </div>`).join('');
+        });
+    }
+
+    function deleteDiaryEntry(id) {
+        showVoidModal("УНИЧТОЖИТЬ ЗАПИСЬ?", 'confirm', (res) => {
+            if (res) db.ref('diaries/' + currentUserName + '/' + id).remove();
+        });
+    }
+
+    function logout() { auth.signOut().then(() => location.reload()); }
+
+    function initPresence() {
+        const onlineRef = db.ref('.info/connected');
+        const myPresenceRef = db.ref('presence/' + currentUserName);
+
+        onlineRef.on('value', (snapshot) => {
+            if (snapshot.val() === true) {
+                myPresenceRef.onDisconnect().remove();
+                myPresenceRef.set(true);
+            }
+        });
+
+        db.ref('presence').on('value', (snapshot) => {
+            const count = snapshot.numChildren();
+            const statusElement = document.getElementById('online-count');
+            if (statusElement) {
+                statusElement.innerText = `ACTIVE_AGENTS: ${count}`;
+            }
+        });
+    }
+
+    function initMemoryMonitor() {
+        const maxMessages = 10000;
+        
+        db.ref('chat').on('value', (snapshot) => {
+            const count = snapshot.numChildren();
+            let percent = Math.floor((count / maxMessages) * 100);
+            if (percent > 100) percent = 100;
+
+            const bar = document.getElementById('memory-bar');
+            const text = document.getElementById('memory-percent');
+            
+            if (bar && text) {
+                bar.style.width = percent + '%';
+                text.innerText = percent + '%';
+
+                if (percent > 80) {
+                    bar.style.background = 'var(--blood-red)';
+                    text.style.color = 'var(--blood-red)';
+                    text.style.animation = 'flicker 0.2s infinite alternate';
+                } else {
+                    bar.style.background = 'var(--terminal-green)';
+                    text.style.color = 'var(--terminal-green)';
+                    text.style.animation = 'none';
+                }
+            }
+        });
+    }
+</script>
+
+</body>
+</html>
